@@ -1,0 +1,43 @@
+# Cuanto runtime (postiz-aws): two isolated containers, loopback only. Env files are written
+# from the vault at deploy time (deploy/install.sh) and never committed.
+# docker compose -f docker-compose.cuanto.yml -p ads-mcp up -d
+x-common: &common
+  image: ${ADS_MCP_IMAGE:-meta-ads-mcp:cuanto}
+  restart: unless-stopped
+  init: true
+  mem_limit: 220m
+  memswap_limit: 420m
+  tmpfs:
+    - /tmp:size=64m
+  environment: &env
+    STORE_BACKEND: postgres
+    PORT: "3000"
+    NODE_ENV: production
+    NODE_OPTIONS: --max-old-space-size=128
+    META_API_VERSION: v27.0
+    LOG_LEVEL: info
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "-q", "--header=X-Forwarded-Proto: https", "http://localhost:3000/health"]
+    interval: 30s
+    timeout: 3s
+    retries: 3
+
+services:
+  ads-mcp-prod:
+    <<: *common
+    container_name: ads-mcp-prod
+    env_file: /home/ubuntu/ads-mcp/prod.env
+    environment:
+      <<: *env
+      SERVER_URL: https://ads-mcp.cuantolabs.com
+    ports:
+      - "127.0.0.1:4421:3000"
+  ads-mcp-dev:
+    <<: *common
+    container_name: ads-mcp-dev
+    env_file: /home/ubuntu/ads-mcp/dev.env
+    environment:
+      <<: *env
+      SERVER_URL: https://ads-mcp-dev.cuantolabs.com
+    ports:
+      - "127.0.0.1:4422:3000"

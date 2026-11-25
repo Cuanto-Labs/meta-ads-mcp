@@ -1,0 +1,6 @@
+[Unit]
+Description=meta-ads-mcp local health probe (prod 4421, dev 4422)
+
+[Service]
+Type=oneshot
+ExecStart=/home/ubuntu/ads-mcp/host-health.sh
