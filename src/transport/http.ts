@@ -55,6 +55,7 @@ import { unsafeIpReason } from "../utils/url-guard.js";
 import { STARTUP_VERSION_PROBE_TIMEOUT_MS, getFfmpeg } from "../media/ffmpeg.js";
 import { withDeadline } from "../utils/with-deadline.js";
 import { sweepStaleVideoDirs } from "../media/video-jobs.js";
+import { postgresTokenRepoFromEnv } from "../cuanto/pg-store.js";
 
 interface PendingAuth {
   fbUserId: string;
@@ -453,7 +454,7 @@ export function configureMultiTenantOAuth(): void {
     requireIdentity: true,
   });
   configureSessionJtiStore(firestore ? new FirestoreJtiStore("mcp_session_jti") : new InMemoryJtiStore());
-  configureMetaTokenRepo(firestore ? new FirestoreMetaTokenRepo() : new InMemoryMetaTokenRepo());
+  configureMetaTokenRepo(postgresTokenRepoFromEnv() ?? (firestore ? new FirestoreMetaTokenRepo() : new InMemoryMetaTokenRepo()));
 }
 
 /**

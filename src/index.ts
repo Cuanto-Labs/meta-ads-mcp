@@ -2,6 +2,8 @@
 
 import { parseArgs } from "node:util";
 import { createServer } from "./server.js";
+import { configureCuantoStore } from "./cuanto/pg-store.js";
+import { configureMetaTokenRepo } from "./store/meta-token-repo.js";
 import { startHttpTransport } from "./transport/http.js";
 import { startStdioTransport } from "./transport/stdio.js";
 import { logger } from "./utils/logger.js";
@@ -30,6 +32,7 @@ async function main(): Promise<void> {
     { transport, port: transport === "http" ? port : undefined },
     "Starting Meta Ads MCP server",
   );
+  await configureCuantoStore(configureMetaTokenRepo);
 
   if (transport === "stdio") {
     const server = createServer();

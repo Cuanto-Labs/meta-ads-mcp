@@ -51,6 +51,7 @@ Ad account: `account_id`, `account_ids`, `ad_account_ids` (audience sharing targ
 
 - (Task 1.0) this file + `scripts/cuanto/tool-map.ts`.
 - (Task 1.1) `DEFAULT_META_API_VERSION` = `v27.0` (`src/meta/api-version.ts`) and every pin (`deploy.yml`, `docker-compose.yml`, `.env.example`, `README.md`); `ads_create_lookalike_audience` no longer sends `country` in `lookalike_spec` (arg kept optional and ignored; locations go in ad set targeting). v27 catalog `/batch` and `total_video_consumption_rate`: not used upstream, guarded by `tests/cuanto/version.test.ts`. Upstream tests that pinned the v26 default were moved to v27.
+- (Task 1.2) `src/cuanto/db.ts` (`Db`, `getMcpDb()` from `MCP_DATABASE_URL`, `runMigrations`, `logCall`), `src/cuanto/pg-store.ts` (`PgTokenStore implements MetaTokenRepo` on `mcp_tokens`, AAD `cuanto_token:<tenant>:<user_key>`; `tokenForCall(tenantId, accessPath)`; `configureCuantoStore`), `src/cuanto/tenants.ts` (`resolveTenant`, `createTenantKey`, `revokeTenantKey`, `runWithTenant`/`currentTenantId`), `migrations/001_cuanto.sql` (+ `cuanto_migrations` ledger). Hooks: `src/index.ts` calls `configureCuantoStore(configureMetaTokenRepo)` at startup; `src/transport/http.ts:456` prefers `postgresTokenRepoFromEnv()` when `STORE_BACKEND=postgres`. Deps: `pg`; dev `pg-mem`, `@types/pg`. The Docker image must ship `migrations/` (Task 1.5).
 
 ## Taking an update
 
