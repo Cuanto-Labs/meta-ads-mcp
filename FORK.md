@@ -60,7 +60,8 @@ Ad account: `account_id`, `account_ids`, `ad_account_ids` (audience sharing targ
 
 - Runtime host: `postiz-aws` (static IP already on the Cuanto-socials allowlist), not deb; keep the image host-agnostic.
 - Env in Cuanto mode: `STORE_BACKEND=postgres`, `MCP_DATABASE_URL`, `CUANTO_ADS_READER_URL`, `TOKEN_ENCRYPTION_KEY`, `META_SYSTEM_USER_TOKEN`, `META_APP_SECRET`, `META_BUSINESS_ID`, `CUANTO_SERVICE_SECRET`; stdio also `CUANTO_TENANT_KEY`.
-- Known v1 limits: Graph calls made by tools (via `metaApiClient`) are not yet in `call_log`; video, Instagram, pixel, catalog, lead and business tools are denied; `access/list` reads `client_ad_accounts` only.
+- `call_log`: service calls log themselves; every `metaApiClient` call (MCP tools, guard lookups) logs via `setGraphCallObserver` in `src/meta/client.ts` (fork hook, installed by `installGraphCallLog` at startup) with the current tenant, API path only.
+- Known v1 limits: video, Instagram, pixel, catalog, lead and business tools are denied; `access/list` reads `client_ad_accounts` only.
 
 ## Taking an update
 

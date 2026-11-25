@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import pg from "pg";
+import { setGraphCallObserver } from "../meta/client.js";
+import { currentTenantId } from "./tenants.js";
 
 export interface Db {
   query<R = Record<string, unknown>>(text: string, params?: unknown[]): Promise<{ rows: R[] }>;
@@ -62,4 +64,11 @@ export async function logCall(entry: CallLogEntry, db: Db = getMcpDb()): Promise
     "insert into call_log (tenant_id, path, http_status, meta_code) values ($1, $2, $3, $4)",
     [entry.tenantId, entry.path, entry.httpStatus, entry.metaCode],
   );
+}
+
+/** Logs every Graph call made through `metaApiClient` (MCP tools, guard lookups) with the current tenant. */
+export function installGraphCallLog(): void {
+  setGraphCallObserver(({ path, httpStatus, metaCode }) => {
+    void logCall({ tenantId: currentTenantId() ?? null, path, httpStatus, metaCode }).catch(() => {});
+  });
 }

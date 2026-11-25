@@ -7,7 +7,7 @@ import type {
   TokenKind,
   UserDoc,
 } from "../store/meta-token-repo.js";
-import { getMcpDb, runMigrations, type Db } from "./db.js";
+import { getMcpDb, installGraphCallLog, runMigrations, type Db } from "./db.js";
 import { currentTenantId, isCuantoMode } from "./tenants.js";
 
 export type AccessPath = "partner" | "login";
@@ -139,6 +139,7 @@ export async function configureCuantoStore(configure: (repo: MetaTokenRepo) => v
   const repo = postgresTokenRepoFromEnv();
   if (!repo) return false;
   await runMigrations(getMcpDb());
+  installGraphCallLog();
   configure(repo);
   return true;
 }

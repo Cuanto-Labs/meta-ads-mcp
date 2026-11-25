@@ -94,6 +94,25 @@ async function settleBy<T>(work: Promise<T>, until: number, late: () => Error): 
  *  - Every response's rate-limit headers update per-bucket state for future
  *    self-throttling decisions.
  */
+/** One finished Graph request: `path` is the API path only (no version, query or token). */
+export type GraphCallObserver = (call: { path: string; httpStatus: number; metaCode: number | null }) => void;
+
+let graphCallObserver: GraphCallObserver | undefined;
+
+/** Fork hook (FORK.md): Cuanto mode logs every Graph call to `call_log`. */
+export function setGraphCallObserver(observer: GraphCallObserver | undefined): void {
+  graphCallObserver = observer;
+}
+
+function notifyGraphCall(path: string, httpStatus: number, metaCode: unknown): void {
+  if (!graphCallObserver) return;
+  try {
+    graphCallObserver({ path: path.split("?")[0], httpStatus, metaCode: typeof metaCode === "number" ? metaCode : null });
+  } catch {
+    // Observability must never break a call.
+  }
+}
+
 export class MetaApiClient {
   readonly apiVersion: string;
   private readonly baseUrl: string;
@@ -366,9 +385,13 @@ export class MetaApiClient {
               controller.abort();
               return new Error(`Request timeout after ${scope?.timeoutMs}ms`);
             });
+        } catch (err) {
+          notifyGraphCall(path, response.status, null);
+          throw err;
         } finally {
           clearTimeout(timeoutId);
         }
+        notifyGraphCall(path, response.status, isMetaApiError(body) ? body.error.code : null);
 
         if (isMetaApiError(body)) {
           const metaError = scope?.withholdMessage ? withheld(body.error) : withoutToken(body.error, token);
