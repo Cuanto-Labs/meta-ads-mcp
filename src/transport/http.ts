@@ -58,6 +58,7 @@ import { sweepStaleVideoDirs } from "../media/video-jobs.js";
 import { postgresTokenRepoFromEnv } from "../cuanto/pg-store.js";
 import { cuantoMcpAuth } from "../cuanto/guard.js";
 import { createCuantoServiceRouter } from "../cuanto/service.js";
+import { startCommandWorker } from "../cuanto/commands.js";
 import { isCuantoMode } from "../cuanto/tenants.js";
 
 interface PendingAuth {
@@ -754,6 +755,7 @@ export async function startHttpTransport(
   });
 
   if (cuantoMode) app.use("/cuanto", createCuantoServiceRouter());
+  if (cuantoMode) startCommandWorker();
   else mountAuthorization(app, serverUrl, config.multiTenantEnabled);
 
   const oauthBearerAuth = requireBearerAuth({ verifier: oauthProvider });

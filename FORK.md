@@ -44,6 +44,7 @@ Ad account: `account_id`, `account_ids`, `ad_account_ids` (audience sharing targ
 ## Fork-only code
 
 - Everything fork-only lives in `src/cuanto/` and `tests/cuanto/`; SQL in `migrations/`; helper scripts in `scripts/cuanto/`.
+- Metabase command queue: `src/cuanto/commands.ts` polls `ops.meta_commands` in the warehouse (`WAREHOUSE_URL`, cuanto mode only) every 10 s and runs status/budget changes after account, target, cap (`COMMAND_MAX_DAILY_BUDGET_MINOR`, default 100000) and 1 h staleness checks. DDL: `migrations/warehouse/002_commands.sql` (apply to the warehouse by hand; `runMigrations` ignores the subfolder). Metabase connects as `metabase_actions` (`WAREHOUSE_ACTIONS_URL`), INSERT + SELECT only. One hook line in `src/transport/http.ts`.
 - Upstream files get one-line hooks only (store factory call, `createServer` wrap, `/cuanto` mount); each is listed under "What we changed".
 - `scripts/cuanto/tool-map.ts` regenerates the table below (`npx tsx scripts/cuanto/tool-map.ts`, `--json` for machines). After every upstream merge, diff it against this file and against `src/cuanto/allowlist.ts`; a new upstream tool is denied until it is added there.
 
