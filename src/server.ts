@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAllTools } from "./tools/index.js";
+import { wrapToolDispatch } from "./cuanto/guard.js";
+import { isCuantoMode } from "./cuanto/tenants.js";
 import { SERVER_INSTRUCTIONS } from "./skills/instructions.js";
 import { registerSkillPrompts } from "./skills/prompts.js";
 import { registerSkillResources } from "./skills/resources.js";
@@ -45,6 +47,7 @@ export function createServer(): McpServer {
     { instructions: SERVER_INSTRUCTIONS },
   );
 
+  if (isCuantoMode()) wrapToolDispatch(server);
   registerAllTools(server);
   registerSkillPrompts(server);
   registerSkillResources(server);

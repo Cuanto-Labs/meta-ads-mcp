@@ -53,3 +53,8 @@ export async function revokeTenantKey(keyHash: string, db: Db = getMcpDb()): Pro
   );
   return rows.length > 0;
 }
+
+/** One switch for the whole fork mode: Postgres store, tenant keys and the tenant guard go together. */
+export function isCuantoMode(): boolean {
+  return process.env.STORE_BACKEND?.trim() === "postgres";
+}

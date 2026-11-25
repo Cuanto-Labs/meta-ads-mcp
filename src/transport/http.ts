@@ -56,6 +56,8 @@ import { STARTUP_VERSION_PROBE_TIMEOUT_MS, getFfmpeg } from "../media/ffmpeg.js"
 import { withDeadline } from "../utils/with-deadline.js";
 import { sweepStaleVideoDirs } from "../media/video-jobs.js";
 import { postgresTokenRepoFromEnv } from "../cuanto/pg-store.js";
+import { cuantoMcpAuth } from "../cuanto/guard.js";
+import { isCuantoMode } from "../cuanto/tenants.js";
 
 interface PendingAuth {
   fbUserId: string;
@@ -703,7 +705,8 @@ export async function startHttpTransport(
 
   const serverUrl = getServerUrl();
 
-  if (config.multiTenantEnabled) configureMultiTenantOAuth();
+  const cuantoMode = isCuantoMode();
+  if (config.multiTenantEnabled && !cuantoMode) configureMultiTenantOAuth();
 
   // Started before the port opens, so it gets startup CPU, and waited for a
   // bounded time only: with min-instances at zero, a request that caused
@@ -749,11 +752,14 @@ export async function startHttpTransport(
     res.json(healthPayload({ ffmpeg: ffmpegRuntime.lastKnownAvailability() }));
   });
 
-  mountAuthorization(app, serverUrl, config.multiTenantEnabled);
+  if (!cuantoMode) mountAuthorization(app, serverUrl, config.multiTenantEnabled);
 
   const oauthBearerAuth = requireBearerAuth({ verifier: oauthProvider });
-  const auth = createCombinedAuthMiddleware(oauthBearerAuth);
-  const metaTokenMw = buildMetaTokenMiddleware(serverUrl, config.multiTenantEnabled);
+  // Cuanto mode: tenant keys only; no API key, OAuth or X-Meta-Token path reaches /mcp.
+  const auth: express.RequestHandler = cuantoMode ? cuantoMcpAuth : createCombinedAuthMiddleware(oauthBearerAuth);
+  const metaTokenMw: express.RequestHandler = cuantoMode
+    ? (_req, _res, next) => next()
+    : buildMetaTokenMiddleware(serverUrl, config.multiTenantEnabled);
 
   app.post("/mcp", auth, metaTokenMw, async (req, res) => {
     try {

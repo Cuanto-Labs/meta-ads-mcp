@@ -8,7 +8,7 @@ import type {
   UserDoc,
 } from "../store/meta-token-repo.js";
 import { getMcpDb, runMigrations, type Db } from "./db.js";
-import { currentTenantId } from "./tenants.js";
+import { currentTenantId, isCuantoMode } from "./tenants.js";
 
 export type AccessPath = "partner" | "login";
 
@@ -131,7 +131,7 @@ export class PgTokenStore implements MetaTokenRepo {
 
 /** The repo selected by `STORE_BACKEND=postgres`, or null to keep upstream's choice. */
 export function postgresTokenRepoFromEnv(): PgTokenStore | null {
-  return process.env.STORE_BACKEND?.trim() === "postgres" ? new PgTokenStore() : null;
+  return isCuantoMode() ? new PgTokenStore() : null;
 }
 
 /** Startup hook: with `STORE_BACKEND=postgres`, migrate the `mcp` database and make PgTokenStore the token repo. */

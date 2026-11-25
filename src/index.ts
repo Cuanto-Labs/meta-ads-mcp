@@ -4,6 +4,8 @@ import { parseArgs } from "node:util";
 import { createServer } from "./server.js";
 import { configureCuantoStore } from "./cuanto/pg-store.js";
 import { configureMetaTokenRepo } from "./store/meta-token-repo.js";
+import { setStdioTenant } from "./cuanto/guard.js";
+import { isCuantoMode, resolveTenant } from "./cuanto/tenants.js";
 import { startHttpTransport } from "./transport/http.js";
 import { startStdioTransport } from "./transport/stdio.js";
 import { logger } from "./utils/logger.js";
@@ -35,6 +37,11 @@ async function main(): Promise<void> {
   await configureCuantoStore(configureMetaTokenRepo);
 
   if (transport === "stdio") {
+    if (isCuantoMode()) {
+      const tenantId = await resolveTenant(process.env.CUANTO_TENANT_KEY?.trim() ?? "");
+      if (!tenantId) throw new Error("CUANTO_TENANT_KEY is missing, unknown or revoked");
+      setStdioTenant(tenantId);
+    }
     const server = createServer();
     await startStdioTransport(server);
   } else {
