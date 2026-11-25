@@ -89,19 +89,23 @@ export const allowedAdAccounts: AllowedAccounts = async (tenantId) => {
   return accounts;
 };
 
-/** Every `active` ad account in this environment, any tenant (the service API's check). 60 s cache. */
-export async function activeAccountsInEnvironment(): Promise<Set<string>> {
-  const hit = accountCache.get("*");
+export type AccountStatus = "active" | "awaiting_operator";
+
+/** Every ad account in this environment (any tenant) whose row status is one of `statuses`. 60 s cache. */
+export async function accountsInEnvironment(statuses: readonly AccountStatus[] = ["active"]): Promise<Set<string>> {
+  const key = `*:${[...statuses].sort().join(",")}`;
+  const hit = accountCache.get(key);
   if (hit && Date.now() - hit.at < ACCOUNTS_TTL_MS) return new Set(hit.accounts.keys());
-  const { rows } = await getReaderDb().query<{ meta_account_id: string }>(
-    "select meta_account_id from ad_accounts where status = 'active'",
+  const { rows } = await getReaderDb().query<{ meta_account_id: string; status: string }>(
+    "select meta_account_id, status from ad_accounts",
   );
   const accounts = new Map<string, AccessPath>();
   for (const row of rows) {
+    if (!(statuses as readonly string[]).includes(row.status)) continue;
     const act = normalizeAccount(row.meta_account_id);
     if (act) accounts.set(act, "partner");
   }
-  accountCache.set("*", { at: Date.now(), accounts });
+  accountCache.set(key, { at: Date.now(), accounts });
   return new Set(accounts.keys());
 }
 

@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import express, { type NextFunction, type Request, type Response, type Router } from "express";
 import { resolveMetaApiVersion } from "../meta/api-version.js";
 import { logCall } from "./db.js";
-import { activeAccountsInEnvironment, resolveAccount, type GraphGet } from "./guard.js";
+import { accountsInEnvironment, resolveAccount, type AccountStatus, type GraphGet } from "./guard.js";
 import { PgTokenStore } from "./pg-store.js";
 import { createTenantKey, revokeTenantKey } from "./tenants.js";
 
@@ -167,13 +167,13 @@ export function createCuantoServiceRouter(deps: ServiceDeps = {}): Router {
     return appScopedUserId;
   }
 
-  async function requireActiveAccount(act: string): Promise<void> {
-    if (!(await activeAccountsInEnvironment()).has(act)) throw new BadRequest(`${act} is not an active ad account`);
+  async function requireActiveAccount(act: string, statuses: AccountStatus[] = ["active"]): Promise<void> {
+    if (!(await accountsInEnvironment(statuses)).has(act)) throw new BadRequest(`${act} is not an ${statuses.join(" or ")} ad account`);
   }
 
   async function requireActiveObject(id: string): Promise<void> {
     const account = await resolveAccount(id, graphGet);
-    if (!account || !(await activeAccountsInEnvironment()).has(account)) {
+    if (!account || !(await accountsInEnvironment()).has(account)) {
       throw new BadRequest(`${id} is not in an active ad account`);
     }
   }
@@ -244,7 +244,8 @@ export function createCuantoServiceRouter(deps: ServiceDeps = {}): Router {
 
   router.post("/access/assign", handle(async (req) => {
     const act = field(req.body, "meta_account_id", ACT);
-    await requireActiveAccount(act);
+    // Confirm in cuanto-ads assigns first, then marks the row active.
+    await requireActiveAccount(act, ["active", "awaiting_operator"]);
     const user = await systemUserId();
     const body = (await graph.call("POST", `/${act}/assigned_users`, { user, tasks: TASKS })) as { success?: unknown };
     return { ok: body?.success === true };

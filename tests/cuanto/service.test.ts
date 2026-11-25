@@ -62,7 +62,7 @@ beforeEach(async () => {
   store = new PgTokenStore(mcpDb);
   const reader = await memDb();
   await reader.query("create table ad_accounts (account_id uuid, meta_account_id text, status text, access_path text)");
-  await reader.query("insert into ad_accounts values ($1, 'act_111', 'active', 'partner'), ($1, 'act_222', 'pending', 'partner')", [TENANT_A]);
+  await reader.query("insert into ad_accounts values ($1, 'act_111', 'active', 'partner'), ($1, 'act_222', 'pending', 'partner'), ($1, 'act_444', 'awaiting_operator', 'partner')", [TENANT_A]);
   configureGuard({ readerDb: reader });
   graphReplies = [];
   graphCalls = [];
@@ -200,6 +200,24 @@ describe("Meta calls", () => {
     const post = graphCalls.find((c) => c.method === "POST")!;
     expect(post.body?.get("user")).toBe(APP_SCOPED_ME);
     expect((await call("POST", "/access/assign", { meta_account_id: "act_222" })).status).toBe(400);
+  });
+
+  it("assigns an awaiting_operator row (Confirm assigns before setting active)", async () => {
+    onGraph((url) => (graphPath(url) === "/me" ? { body: { id: APP_SCOPED_ME } } : undefined));
+    onGraph((url) => (graphPath(url) === "/act_444/assigned_users" ? { body: { success: true } } : undefined));
+    expect((await call("POST", "/access/assign", { meta_account_id: "act_444" })).json).toEqual({ ok: true });
+  });
+
+  it("keeps every other id-taking route active-only", async () => {
+    onGraph((url, init) => {
+      if (init?.method === "POST") return { body: { success: true } };
+      if (graphPath(url) === "/705") return { body: { id: "705", account_id: "444" } };
+      return { body: { data: [] } };
+    });
+    expect((await call("GET", "/insights?meta_account_id=act_444")).status).toBe(400);
+    expect((await call("POST", "/campaigns/705/status", { status: "PAUSED" })).status).toBe(400);
+    expect((await call("POST", "/adsets/705/budget", { daily_budget: 100 })).status).toBe(400);
+    expect(graphCalls.filter((c) => c.method === "POST")).toHaveLength(0);
   });
 
   it("returns zeros for insights with no delivery ({data: []})", async () => {
