@@ -1,0 +1,16 @@
+[Unit]
+Description=Meta Ads warehouse sync (dlt)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+# hard cap: the sync is killed before Postiz sees memory pressure
+EnvironmentFile=-/etc/postiz-guard.env
+MemoryMax=400M
+MemorySwapMax=0
+Nice=10
+TimeoutStartSec=2h
+ExecStart=/home/ubuntu/ads-mcp/sync/run.sh
+ExecStopPost=/bin/sh -c '[ "$EXIT_STATUS" = "0" ] || [ -z "$NTFY_FLEET_TOPIC" ] || curl -fsS -m 10 -H "Title: meta-ads-sync" -d "meta-ads-sync failed ($SERVICE_RESULT/$EXIT_STATUS)" https://ntfy.sh/$NTFY_FLEET_TOPIC >/dev/null 2>&1 || true'

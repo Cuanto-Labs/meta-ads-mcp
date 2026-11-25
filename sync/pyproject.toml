@@ -1,0 +1,14 @@
+[project]
+name = "sync"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "dlt[postgres]>=1.32.0",
+    "facebook-business>=27,<28",
+    "psycopg[binary]>=3.3.9",
+    "pytest>=9.2.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

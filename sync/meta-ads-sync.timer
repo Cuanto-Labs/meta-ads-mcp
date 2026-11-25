@@ -1,0 +1,11 @@
+[Unit]
+Description=Meta Ads warehouse sync, daily 4:30 ET
+
+[Timer]
+# Host clock is UTC; timezone-aware spec keeps 4:30 ET across DST.
+OnCalendar=*-*-* 04:30:00 America/New_York
+Persistent=true
+RandomizedDelaySec=0
+
+[Install]
+WantedBy=timers.target
