@@ -63,6 +63,16 @@ function credentials(): Credentials {
   return { token, proof: createHmac("sha256", secret).update(token).digest("hex") };
 }
 
+function appSecret(): string {
+  const secret = process.env.META_APP_SECRET?.trim();
+  if (!secret) throw new MetaServiceError("auth", "META_APP_SECRET must be set");
+  return secret;
+}
+
+function proofFor(token: string): string {
+  return createHmac("sha256", appSecret()).update(token).digest("hex");
+}
+
 function scrub(text: string, token: string): string {
   return token ? text.split(token).join("[redacted]") : text;
 }
@@ -70,10 +80,19 @@ function scrub(text: string, token: string): string {
 export function createGraph(deps: ServiceDeps = {}) {
   const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
 
-  async function once(method: "GET" | "POST", path: string, params: Record<string, string>): Promise<unknown> {
-    const { token, proof } = credentials();
+  /** `auth`: undefined = system user, `null` = params only (OAuth code swap), string = that user token plus its proof. */
+  async function once(method: "GET" | "POST", path: string, params: Record<string, string>, auth?: string | null): Promise<unknown> {
+    let token = "";
+    let fields = params;
+    if (auth === undefined) {
+      const creds = credentials();
+      token = creds.token;
+      fields = { ...params, access_token: creds.token, appsecret_proof: creds.proof };
+    } else if (auth !== null) {
+      token = auth;
+      fields = { ...params, access_token: auth, appsecret_proof: proofFor(auth) };
+    }
     const url = new URL(`${GRAPH}/${resolveMetaApiVersion()}${path}`);
-    const fields = { ...params, access_token: token, appsecret_proof: proof };
     let init: RequestInit = { method };
     if (method === "GET") {
       for (const [k, v] of Object.entries(fields)) url.searchParams.set(k, v);
@@ -139,6 +158,16 @@ function field(body: unknown, name: string, pattern: RegExp): string {
   const value = (body as Record<string, unknown> | undefined)?.[name];
   if (typeof value !== "string" || !pattern.test(value)) throw new BadRequest(`${name} is missing or malformed`);
   return value;
+}
+
+const DEFAULT_REDIRECTS = [
+  "https://ads.cuantolabs.com/api/meta/oauth/callback",
+  "https://ads-dev.cuantolabs.com/api/meta/oauth/callback",
+];
+
+function redirectAllowed(uri: string): boolean {
+  const extra = (process.env.OAUTH_REDIRECT_ALLOWLIST ?? "").split(",").map((v) => v.trim()).filter(Boolean);
+  return (extra.length > 0 ? extra : DEFAULT_REDIRECTS).includes(uri);
 }
 
 function businessId(): string {
@@ -280,6 +309,45 @@ export function createCuantoServiceRouter(deps: ServiceDeps = {}): Router {
     await requireActiveObject(id);
     const body = (await graph.call("POST", `/${id}`, { daily_budget: String(budget) })) as { success?: unknown };
     return { ok: body?.success === true };
+  }));
+
+  router.post("/oauth/exchange", handle(async (req) => {
+    const tenantId = field(req.body, "tenant_id", UUID);
+    const code = field(req.body, "code", /^[\w.~-]{1,2048}$/);
+    const redirectUri = (req.body as { redirect_uri?: unknown })?.redirect_uri;
+    if (typeof redirectUri !== "string" || !redirectAllowed(redirectUri)) throw new BadRequest("redirect_uri is not allowed");
+    const appId = process.env.META_APP_ID?.trim();
+    if (!appId || !NUMERIC.test(appId)) throw new MetaServiceError("invalid", "META_APP_ID is not set");
+    const clientSecret = appSecret();
+
+    const short = (await graph.once("GET", "/oauth/access_token", { client_id: appId, redirect_uri: redirectUri, client_secret: clientSecret, code }, null)) as { access_token?: unknown };
+    if (typeof short?.access_token !== "string") throw new MetaServiceError("upstream", "Meta returned no access token");
+    const long = (await graph.once("GET", "/oauth/access_token", { grant_type: "fb_exchange_token", client_id: appId, client_secret: clientSecret, fb_exchange_token: short.access_token }, null)) as { access_token?: unknown };
+    if (typeof long?.access_token !== "string" || long.access_token.length < 20) throw new MetaServiceError("upstream", "Meta returned no long-lived token");
+    const token = long.access_token;
+
+    const me = (await graph.once("GET", "/me", { fields: "id" }, token)) as { id?: unknown };
+    if (typeof me?.id !== "string" || !NUMERIC.test(me.id)) throw new MetaServiceError("upstream", "GET /me returned no id");
+
+    const accounts: Array<{ meta_account_id: string; name: string }> = [];
+    let params: Record<string, string> = { fields: "account_id,name", limit: "100" };
+    for (let page = 0; page < MAX_LIST_PAGES; page++) {
+      const body = (await graph.once("GET", "/me/adaccounts", params, token)) as {
+        data?: Array<{ account_id?: unknown; name?: unknown }>;
+        paging?: { next?: unknown; cursors?: { after?: unknown } };
+      };
+      for (const row of body?.data ?? []) {
+        const digits = typeof row.account_id === "string" ? row.account_id.replace(/^act_/, "") : "";
+        if (NUMERIC.test(digits)) accounts.push({ meta_account_id: `act_${digits}`, name: typeof row.name === "string" ? row.name : "" });
+      }
+      const after = body?.paging?.cursors?.after;
+      if (!body?.paging?.next || typeof after !== "string") break;
+      params = { ...params, after };
+    }
+
+    tokenStore ??= new PgTokenStore();
+    await tokenStore.saveTenantToken({ tenantId, userKey: me.id, token, kind: "user" });
+    return { fb_user_id: me.id, accounts };
   }));
 
   router.post("/tokens", handle(async (req) => {
