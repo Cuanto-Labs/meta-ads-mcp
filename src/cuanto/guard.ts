@@ -89,6 +89,22 @@ export const allowedAdAccounts: AllowedAccounts = async (tenantId) => {
   return accounts;
 };
 
+/** Every `active` ad account in this environment, any tenant (the service API's check). 60 s cache. */
+export async function activeAccountsInEnvironment(): Promise<Set<string>> {
+  const hit = accountCache.get("*");
+  if (hit && Date.now() - hit.at < ACCOUNTS_TTL_MS) return new Set(hit.accounts.keys());
+  const { rows } = await getReaderDb().query<{ meta_account_id: string }>(
+    "select meta_account_id from ad_accounts where status = 'active'",
+  );
+  const accounts = new Map<string, AccessPath>();
+  for (const row of rows) {
+    const act = normalizeAccount(row.meta_account_id);
+    if (act) accounts.set(act, "partner");
+  }
+  accountCache.set("*", { at: Date.now(), accounts });
+  return new Set(accounts.keys());
+}
+
 /** Graph reads made by the guard itself always use the system-user token. */
 const systemGraphGet: GraphGet = async (path, params) => {
   const token = process.env.META_SYSTEM_USER_TOKEN?.trim();
@@ -213,7 +229,8 @@ function walk(value: unknown, needs: Needs, depth: number, topLevel: boolean): v
 
 // ─── Resolution ───────────────────────────────────────────────────────
 
-async function resolveAccount(id: string, graphGet: GraphGet): Promise<string | null> {
+/** Owning ad account (act_<digits>) of a Graph object, or null. Cached 10 min. */
+export async function resolveAccount(id: string, graphGet: GraphGet): Promise<string | null> {
   const hit = resolveCache.get(id);
   if (hit && Date.now() - hit.at < RESOLVE_TTL_MS) return hit.account;
   try {

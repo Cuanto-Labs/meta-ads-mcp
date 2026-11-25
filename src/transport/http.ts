@@ -57,6 +57,7 @@ import { withDeadline } from "../utils/with-deadline.js";
 import { sweepStaleVideoDirs } from "../media/video-jobs.js";
 import { postgresTokenRepoFromEnv } from "../cuanto/pg-store.js";
 import { cuantoMcpAuth } from "../cuanto/guard.js";
+import { createCuantoServiceRouter } from "../cuanto/service.js";
 import { isCuantoMode } from "../cuanto/tenants.js";
 
 interface PendingAuth {
@@ -752,7 +753,8 @@ export async function startHttpTransport(
     res.json(healthPayload({ ffmpeg: ffmpegRuntime.lastKnownAvailability() }));
   });
 
-  if (!cuantoMode) mountAuthorization(app, serverUrl, config.multiTenantEnabled);
+  if (cuantoMode) app.use("/cuanto", createCuantoServiceRouter());
+  else mountAuthorization(app, serverUrl, config.multiTenantEnabled);
 
   const oauthBearerAuth = requireBearerAuth({ verifier: oauthProvider });
   // Cuanto mode: tenant keys only; no API key, OAuth or X-Meta-Token path reaches /mcp.
