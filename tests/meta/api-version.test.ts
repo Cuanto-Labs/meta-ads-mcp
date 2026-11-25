@@ -15,9 +15,9 @@ describe("resolveMetaApiVersion", () => {
     vi.unstubAllEnvs();
   });
 
-  it("targets Graph API v26.0 when META_API_VERSION is unset", () => {
+  it("targets Graph API v27.0 when META_API_VERSION is unset", () => {
     vi.stubEnv("META_API_VERSION", undefined);
-    expect(resolveMetaApiVersion()).toBe("v26.0");
+    expect(resolveMetaApiVersion()).toBe("v27.0");
   });
 
   it("honours a META_API_VERSION override, ignoring surrounding whitespace", () => {
@@ -27,7 +27,7 @@ describe("resolveMetaApiVersion", () => {
 
   it("falls back to the default when META_API_VERSION is blank", () => {
     vi.stubEnv("META_API_VERSION", "  ");
-    expect(resolveMetaApiVersion()).toBe("v26.0");
+    expect(resolveMetaApiVersion()).toBe("v27.0");
   });
 
   // The version is interpolated into every request path, including the OAuth

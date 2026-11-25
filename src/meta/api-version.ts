@@ -1,4 +1,4 @@
-export const DEFAULT_META_API_VERSION = "v26.0";
+export const DEFAULT_META_API_VERSION = "v27.0";
 
 const VERSION_PATTERN = /^v(\d+)\.(\d+)$/;
 

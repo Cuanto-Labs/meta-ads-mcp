@@ -50,6 +50,7 @@ Ad account: `account_id`, `account_ids`, `ad_account_ids` (audience sharing targ
 ## What we changed
 
 - (Task 1.0) this file + `scripts/cuanto/tool-map.ts`.
+- (Task 1.1) `DEFAULT_META_API_VERSION` = `v27.0` (`src/meta/api-version.ts`) and every pin (`deploy.yml`, `docker-compose.yml`, `.env.example`, `README.md`); `ads_create_lookalike_audience` no longer sends `country` in `lookalike_spec` (arg kept optional and ignored; locations go in ad set targeting). v27 catalog `/batch` and `total_video_consumption_rate`: not used upstream, guarded by `tests/cuanto/version.test.ts`. Upstream tests that pinned the v26 default were moved to v27.
 
 ## Taking an update
 

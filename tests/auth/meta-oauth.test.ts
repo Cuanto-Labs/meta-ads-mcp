@@ -21,7 +21,7 @@ describe("Meta OAuth Graph API version", () => {
     vi.restoreAllMocks();
   });
 
-  it("runs the login dialog and Graph calls on v26.0 by default", async () => {
+  it("runs the login dialog and Graph calls on v27.0 by default", async () => {
     vi.stubEnv("META_API_VERSION", undefined);
     vi.mocked(globalThis.fetch).mockResolvedValueOnce(mockFetchResponse({ data: [] }));
 
@@ -29,9 +29,9 @@ describe("Meta OAuth Graph API version", () => {
     const dialogUrl = new URL(buildAuthorizeUrl(config!, "state-1"));
     await fetchPrimaryBusiness("token-x");
 
-    expect(dialogUrl.pathname).toBe("/v26.0/dialog/oauth");
+    expect(dialogUrl.pathname).toBe("/v27.0/dialog/oauth");
     const graphUrl = new URL(vi.mocked(globalThis.fetch).mock.calls[0][0] as string);
-    expect(graphUrl.pathname).toBe("/v26.0/me/businesses");
+    expect(graphUrl.pathname).toBe("/v27.0/me/businesses");
   });
 
   it("follows META_API_VERSION for the login dialog and Graph calls", async () => {

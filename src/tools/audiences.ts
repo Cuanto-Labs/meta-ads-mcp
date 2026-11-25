@@ -168,12 +168,12 @@ export function registerAudienceTools(server: McpServer): void {
         name: z.string().min(1).describe("Lookalike audience name"),
         origin_audience_id: z.string().describe("Source custom audience ID"),
         ratio: z.number().min(0.01).max(0.20).describe("Lookalike ratio (0.01 = 1%, 0.20 = 20%)"),
-        country: z.string().describe("Target country ISO code (e.g., CO, US, MX)"),
+        country: z.string().optional().describe("Ignored since Marketing API v27.0, which rejects country and location_spec in lookalike_spec. Set locations in the ad set targeting instead."),
         description: z.string().optional(),
       },
       annotations: { ...CREATE },
     },
-    async ({ account_id, name, origin_audience_id, ratio, country, description }) => {
+    async ({ account_id, name, origin_audience_id, ratio, description }) => {
       const accountPath = normalizeAccountId(account_id);
       const originAudienceIdValidated = validateMetaId(origin_audience_id, "audience");
 
@@ -183,7 +183,6 @@ export function registerAudienceTools(server: McpServer): void {
         origin_audience_id: originAudienceIdValidated,
         lookalike_spec: JSON.stringify({
           ratio,
-          country,
           type: "similarity",
         }),
       };
@@ -199,7 +198,7 @@ export function registerAudienceTools(server: McpServer): void {
         content: [
           {
             type: "text",
-            text: `Lookalike audience created!\nID: ${result.id}\nName: ${name}\nSource: ${originAudienceIdValidated}\nRatio: ${(ratio * 100).toFixed(0)}%\nCountry: ${country}`,
+            text: `Lookalike audience created!\nID: ${result.id}\nName: ${name}\nSource: ${originAudienceIdValidated}\nRatio: ${(ratio * 100).toFixed(0)}%`,
           },
         ],
       };

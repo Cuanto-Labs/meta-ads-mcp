@@ -27,7 +27,7 @@ describe("MetaApiClient", () => {
   });
 
   describe("constructor", () => {
-    it("sends requests to Graph API v26.0 when no version is configured", async () => {
+    it("sends requests to Graph API v27.0 when no version is configured", async () => {
       vi.stubEnv("META_API_VERSION", undefined);
       const defaultClient = new MetaApiClient({ maxRetries: 0 });
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockFetchResponse({ data: [] })));
@@ -35,7 +35,7 @@ describe("MetaApiClient", () => {
       await defaultClient.get("/me/adaccounts");
 
       const url = new URL(vi.mocked(fetch).mock.calls[0][0] as string);
-      expect(url.pathname).toBe("/v26.0/me/adaccounts");
+      expect(url.pathname).toBe("/v27.0/me/adaccounts");
     });
 
     it("refuses a configured API version that is not a plain version", () => {
